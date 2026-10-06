@@ -1,0 +1,15 @@
+name: agenda_compartilhada
+description: Interface navegavel da agenda compartilhada com os cinco temas originais.
+publish_to: "none"
+version: 0.1.0
+
+environment:
+  sdk: ^3.6.0
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
