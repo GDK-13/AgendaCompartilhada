@@ -56,7 +56,7 @@ class AuthScreen extends StatelessWidget {
         const SizedBox(height: 12),
         GlassButton(
           label: 'Criar conta',
-          onPressed: () {},
+          onPressed: () => Navigator.pushNamed(context, AppRoutes.signup),
         ),
         const SizedBox(height: 16),
         Text(

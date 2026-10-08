@@ -32,6 +32,7 @@ class _HomeShellState extends State<HomeShell> {
         _AgendaScreen(
           onTab: _changeTab,
           onNovo: () => Navigator.pushNamed(context, AppRoutes.eventForm),
+          onDetalhe: () => Navigator.pushNamed(context, AppRoutes.eventDetail),
         ),
         _GroupsScreen(
           onTab: _changeTab,
@@ -53,10 +54,15 @@ class _HomeShellState extends State<HomeShell> {
 }
 
 class _AgendaScreen extends StatelessWidget {
-  const _AgendaScreen({required this.onTab, required this.onNovo});
+  const _AgendaScreen({
+    required this.onTab,
+    required this.onNovo,
+    required this.onDetalhe,
+  });
 
   final ValueChanged<int> onTab;
   final VoidCallback onNovo;
+  final VoidCallback onDetalhe;
 
   @override
   Widget build(BuildContext context) {
@@ -65,167 +71,313 @@ class _AgendaScreen extends StatelessWidget {
     return ScreenScaffold(
       tabIndex: 0,
       onTab: onTab,
-      header: ScreenHeader(
-        titulo: 'Minha agenda',
-        subtitulo: 'Outubro de 2026',
-        trailing: MemberAvatar(nome: 'Kevin', cor: t.membroA, tamanho: 44),
-      ),
+      floatingAction: _AgendaFab(onTap: onNovo),
       children: [
-        const SizedBox(height: 20),
-        GlassCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text('Outubro', style: AgendaText.corpo(t)),
-                  const Spacer(),
-                  Icon(Icons.chevron_left, color: t.textoSuave),
-                  const SizedBox(width: 8),
-                  Icon(Icons.chevron_right, color: t.textoSuave),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const _StaticCalendar(),
-            ],
-          ),
+        Text(
+          'Quinta, 1 de outubro',
+          style: AgendaText.corpoSuave(t),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 2),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Expanded(child: Text('Compromissos', style: AgendaText.corpo(t))),
-            GestureDetector(
-              onTap: onNovo,
-              child: Text('Novo', style: AgendaText.link(t)),
+            Expanded(
+              child: Text('Minha agenda', style: AgendaText.titulo(t)),
             ),
+            MemberAvatar(nome: 'Kevin Tiago', cor: t.membroA, tamanho: 48),
           ],
         ),
-        const SizedBox(height: 10),
-        _EventTile(
-          title: 'Programação para dispositivos móveis',
-          time: '14:00 até 15:40',
-          color: t.membroA,
-        ),
-        const SizedBox(height: 10),
-        _EventTile(
-          title: 'Trabalho em dupla',
-          time: '17:30 até 18:30',
-          color: t.membroB,
-        ),
         const SizedBox(height: 18),
-        PrimaryButton(
-          label: 'Novo compromisso',
-          icone: Icons.add_rounded,
-          onPressed: onNovo,
-        ),
+        const _WeekStrip(),
+        const SizedBox(height: 16),
+        _DayTimeline(onEventTap: onDetalhe),
       ],
     );
   }
 }
 
-class _StaticCalendar extends StatelessWidget {
-  const _StaticCalendar();
+class _AgendaFab extends StatelessWidget {
+  const _AgendaFab({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          color: t.acentoBase,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+          boxShadow: t.sombraBotao,
+        ),
+        child: Icon(Icons.add_rounded, size: 32, color: t.acentoSobre),
+      ),
+    );
+  }
+}
+
+class _WeekStrip extends StatelessWidget {
+  const _WeekStrip();
 
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
     const labels = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+    const days = ['27', '28', '29', '30', '1', '2', '3'];
 
-    return Column(
-      children: [
-        Row(
-          children: [
-            for (final label in labels)
-              Expanded(
-                child: Center(
-                  child: Text(label, style: AgendaText.rotulo(t)),
+    return GlassCard(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      radius: 26,
+      child: Row(
+        children: [
+          for (var i = 0; i < labels.length; i++)
+            Expanded(
+              child: SizedBox(
+                height: 68,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    if (i == 4)
+                      Container(
+                        width: 42,
+                        height: 68,
+                        decoration: BoxDecoration(
+                          color: t.acentoBase,
+                          borderRadius: BorderRadius.circular(22),
+                          boxShadow: t.sombraBotao,
+                        ),
+                      ),
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          labels[i],
+                          style: TextStyle(
+                            color: i == 4 ? t.acentoSobre : t.textoSuave,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          days[i],
+                          style: TextStyle(
+                            color: i == 4 ? t.acentoSobre : t.textoPrincipal,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (i == 0 || i == 5)
+                      Positioned(
+                        bottom: 1,
+                        child: Container(
+                          width: 5,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: t.acentoBase,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: 35,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 7,
-          ),
-          itemBuilder: (context, index) {
-            final day = index + 1;
-            if (day > 31) return const SizedBox.shrink();
-            final selected = day == 6;
-            final hasEvent = day == 6 || day == 9 || day == 15 || day == 21;
-
-            return Center(
-              child: Container(
-                width: 34,
-                height: 34,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: selected ? t.acentoBase : Colors.transparent,
-                  shape: BoxShape.circle,
-                  border: hasEvent && !selected
-                      ? Border.all(color: t.acentoBase.withValues(alpha: 0.55))
-                      : null,
-                ),
-                child: Text(
-                  '$day',
-                  style: TextStyle(
-                    color: selected ? t.acentoSobre : t.textoPrincipal,
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ],
+            ),
+        ],
+      ),
     );
   }
 }
 
-class _EventTile extends StatelessWidget {
-  const _EventTile({
-    required this.title,
-    required this.time,
-    required this.color,
-  });
+class _DayTimeline extends StatelessWidget {
+  const _DayTimeline({required this.onEventTap});
 
-  final String title;
-  final String time;
-  final Color color;
+  final VoidCallback onEventTap;
+
+  static const double hourHeight = 52;
+  static const double leftGutter = 52;
 
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    const hours = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'];
+
     return GlassCard(
-      padding: const EdgeInsets.all(16),
-      radius: 20,
-      child: Row(
-        children: [
-          Container(
-            width: 5,
-            height: 44,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+      radius: 28,
+      child: SizedBox(
+        height: hourHeight * 8 + 18,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final eventWidth = constraints.maxWidth - leftGutter - 4;
+            return Stack(
+              clipBehavior: Clip.none,
               children: [
-                Text(title, style: AgendaText.corpo(t)),
-                const SizedBox(height: 3),
-                Text(time, style: AgendaText.corpoSuave(t)),
+                for (var i = 0; i < hours.length; i++) ...[
+                  Positioned(
+                    left: 0,
+                    top: i * hourHeight - 5,
+                    width: 44,
+                    child: Text(
+                      hours[i],
+                      style: TextStyle(
+                        color: t.textoSuave,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: leftGutter,
+                    right: 0,
+                    top: i * hourHeight,
+                    child: Container(height: 1, color: t.linha),
+                  ),
+                ],
+                _TimelineEvent(
+                  top: hourHeight,
+                  height: hourHeight * .9,
+                  width: eventWidth,
+                  title: 'Dentista',
+                  subtitle: '09:00 – 10:00  ·  lembrete 30 min antes',
+                  color: t.membroA,
+                  softColor: t.eventoASuave,
+                  onTap: onEventTap,
+                ),
+                _TimelineEvent(
+                  top: hourHeight * 2.5,
+                  height: hourHeight * 1.42,
+                  width: eventWidth,
+                  title: 'Aula de Mobile',
+                  subtitle: '10:30 – 12:00  ·  lembrete 30 min antes',
+                  color: t.membroB,
+                  softColor: t.eventoBSuave,
+                  onTap: onEventTap,
+                ),
+                _TimelineEvent(
+                  top: hourHeight * 4.5,
+                  height: hourHeight * .9,
+                  width: eventWidth,
+                  title: 'Almoço com a mãe',
+                  subtitle: '12:30 – 13:30  ·  lembrete 30 min antes',
+                  color: t.eventoC,
+                  softColor: t.eventoCSuave,
+                  onTap: onEventTap,
+                ),
+                _TimelineEvent(
+                  top: hourHeight * 7,
+                  height: hourHeight * .9,
+                  width: eventWidth,
+                  title: 'Academia',
+                  subtitle: '15:00 – 16:00  ·  lembrete 30 min antes',
+                  color: t.membroA,
+                  softColor: t.eventoASuave,
+                  onTap: onEventTap,
+                ),
               ],
-            ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _TimelineEvent extends StatelessWidget {
+  const _TimelineEvent({
+    required this.top,
+    required this.height,
+    required this.width,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.softColor,
+    required this.onTap,
+  });
+
+  final double top;
+  final double height;
+  final double width;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final Color softColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return Positioned(
+      left: _DayTimeline.leftGutter + 4,
+      top: top + 3,
+      width: width,
+      height: height,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            color: softColor,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: t.vidroBorda),
+            boxShadow: [
+              BoxShadow(
+                color: t.relevoSombraCurta,
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          Icon(Icons.chevron_right, color: t.textoFraco),
-        ],
+          child: Row(
+            children: [
+              Container(
+                width: 5,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: const BorderRadius.horizontal(
+                    left: Radius.circular(14),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: t.textoPrincipal,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: t.textoSuave,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -339,16 +491,25 @@ class _FreeSlotsScreen extends StatelessWidget {
             children: [
               Text('Quinta, 8 de outubro', style: AgendaText.corpo(t)),
               const SizedBox(height: 14),
-              FreeSlotCard(intervalo: '09:00 até 10:30', duracao: '1 h 30 min'),
+              const FreeSlotCard(
+                intervalo: '09:00 até 10:30',
+                duracao: '1 h 30 min',
+              ),
               const SizedBox(height: 10),
-              FreeSlotCard(intervalo: '13:00 até 14:00', duracao: '1 hora'),
+              const FreeSlotCard(
+                intervalo: '13:00 até 14:00',
+                duracao: '1 hora',
+              ),
               const SizedBox(height: 10),
-              FreeSlotCard(intervalo: '18:30 até 20:00', duracao: '1 h 30 min'),
+              const FreeSlotCard(
+                intervalo: '18:30 até 20:00',
+                duracao: '1 h 30 min',
+              ),
             ],
           ),
         ),
         const SizedBox(height: 16),
-        InfoNote(
+        const InfoNote(
           icone: Icons.info_outline,
           texto:
               'Os horários acima são apenas dados visuais. O cálculo real fica para a implementação das features.',

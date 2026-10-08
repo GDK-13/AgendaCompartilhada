@@ -3,6 +3,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 
 import '../theme/agenda_theme.dart';
+import '../theme/app_theme.dart' as figma;
 
 /// Estilos de texto baseados nos tokens do tema ativo.
 class AgendaText {
@@ -126,14 +127,31 @@ class GlassCard extends StatelessWidget {
             sigmaX: AgendaDims.desfoqueVidro,
             sigmaY: AgendaDims.desfoqueVidro,
           ),
-          child: Container(
-            padding: padding,
-            decoration: BoxDecoration(
-              color: forte ? t.vidroForte : t.vidroNormal,
-              borderRadius: borda,
-              border: Border.all(color: t.vidroBorda, width: 1),
+          child: CustomPaint(
+            foregroundPainter: figma.InnerShadowPainter(
+              borda,
+              [
+                BoxShadow(
+                  color: t.relevoBrilho,
+                  offset: const Offset(0, 1.5),
+                  blurRadius: 0,
+                ),
+                BoxShadow(
+                  color: t.relevoSombraBaixa,
+                  offset: const Offset(0, -2),
+                  blurRadius: 3,
+                ),
+              ],
             ),
-            child: child,
+            child: Container(
+              padding: padding,
+              decoration: BoxDecoration(
+                color: forte ? t.vidroForte : t.vidroNormal,
+                borderRadius: borda,
+                border: Border.all(color: t.vidroBorda, width: 1),
+              ),
+              child: child,
+            ),
           ),
         ),
       ),
@@ -189,37 +207,54 @@ class _InsetFieldState extends State<InsetField> {
           padding: const EdgeInsets.only(left: 4, bottom: 6),
           child: Text(widget.label, style: AgendaText.rotulo(t)),
         ),
-        Container(
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: t.campoFundo,
-            borderRadius: BorderRadius.circular(AgendaDims.raioCampo),
-            border: Border.all(
-              color: temErro ? t.estadoErro : t.campoBorda,
-              width: temErro ? 1.5 : 1,
-            ),
+        CustomPaint(
+          foregroundPainter: figma.InnerShadowPainter(
+            BorderRadius.circular(AgendaDims.raioCampo),
+            [
+              BoxShadow(
+                color: t.campoSombra,
+                offset: const Offset(0, 3),
+                blurRadius: 5,
+              ),
+              BoxShadow(
+                color: t.campoLip,
+                offset: const Offset(0, -1),
+                blurRadius: 0,
+              ),
+            ],
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _controller,
-                  obscureText: widget.obscure,
-                  keyboardType: widget.keyboardType,
-                  onChanged: widget.onChanged,
-                  cursorColor: t.acentoBase,
-                  style: AgendaText.corpo(t),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    border: InputBorder.none,
-                    hintText: widget.hint,
-                    hintStyle: TextStyle(color: t.textoFraco, fontSize: 15),
+          child: Container(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: t.campoFundo,
+              borderRadius: BorderRadius.circular(AgendaDims.raioCampo),
+              border: Border.all(
+                color: temErro ? t.estadoErro : t.campoBorda,
+                width: temErro ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    obscureText: widget.obscure,
+                    keyboardType: widget.keyboardType,
+                    onChanged: widget.onChanged,
+                    cursorColor: t.acentoBase,
+                    style: AgendaText.corpo(t),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      border: InputBorder.none,
+                      hintText: widget.hint,
+                      hintStyle: TextStyle(color: t.textoFraco, fontSize: 15),
+                    ),
                   ),
                 ),
-              ),
-              if (widget.trailing != null) widget.trailing!,
-            ],
+                if (widget.trailing != null) widget.trailing!,
+              ],
+            ),
           ),
         ),
         if (temErro)
@@ -278,28 +313,45 @@ class PrimaryButton extends StatelessWidget {
         boxShadow: t.sombraBotao,
         border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: borda,
-          onTap: onPressed,
-          child: Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (icone != null) ...[
-                  Icon(icone, size: 18, color: sobre),
-                  const SizedBox(width: 8),
-                ],
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: sobre,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+      child: CustomPaint(
+        foregroundPainter: figma.InnerShadowPainter(
+          borda,
+          [
+            BoxShadow(
+              color: t.acentoBrilho,
+              offset: const Offset(0, 2),
+              blurRadius: 0,
+            ),
+            BoxShadow(
+              color: t.acentoBaseEscura,
+              offset: const Offset(0, -3),
+              blurRadius: 4,
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: borda,
+            onTap: onPressed,
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (icone != null) ...[
+                    Icon(icone, size: 18, color: sobre),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: sobre,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -541,12 +593,14 @@ class ScreenScaffold extends StatelessWidget {
     this.header,
     this.tabIndex,
     this.onTab,
+    this.floatingAction,
   });
 
   final List<Widget> children;
   final Widget? header;
   final int? tabIndex;
   final ValueChanged<int>? onTab;
+  final Widget? floatingAction;
 
   @override
   Widget build(BuildContext context) {
@@ -570,6 +624,12 @@ class ScreenScaffold extends StatelessWidget {
                   ),
                 ),
               ),
+              if (floatingAction != null)
+                Positioned(
+                  right: 34,
+                  bottom: tabIndex == null ? 24 : 92,
+                  child: floatingAction!,
+                ),
               if (tabIndex != null)
                 Positioned(
                   left: 24,

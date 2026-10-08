@@ -1,36 +1,46 @@
 # Agenda Compartilhada
 
-Pacote de interface Flutter com navegação e os cinco temas originais do mockup.
+Interface Flutter do projeto de agenda compartilhada.
 
-## Temas incluídos
+## Estado desta versão
+
+Esta versão integra o sistema visual exportado do Figma e as novas telas presentes no pacote de mockups.
+
+### Temas
+
+As cinco paletas vêm diretamente de `lib/theme/app_theme.dart`:
 
 1. Aconchegante
 2. Azul claro
 3. Azul escuro
-4. Lilás, azul e verde
-5. Ameixa
+4. Multicolor claro
+5. Roxo e rosa escuro
 
-As paletas e os tokens foram preservados a partir do arquivo `agenda_flutter.zip` usado como referência.
+`agenda_theme.dart` funciona como adaptador para manter compatibilidade com os widgets e telas já existentes.
 
-## O que funciona
+### Telas incorporadas
 
-A navegação entre login, agenda, grupos, horários livres, perfil, configurações, formulário de compromisso e formulário de grupo.
+- Login
+- Criar conta
+- Minha agenda com visão semanal e linha do tempo
+- Novo compromisso
+- Detalhe do compromisso
+- Confirmação de exclusão do compromisso
+- Grupos
+- Horários livres
+- Perfil
+- Aparência e troca de tema
+- Criar grupo
 
-A troca instantânea entre os cinco temas.
+## Supabase
 
-## O que não foi implementado
-
-Autenticação real, Supabase, persistência, CRUD, notificações, cálculo de disponibilidade e regras de negócio.
-
-Os dados exibidos são apenas exemplos visuais para facilitar a implementação posterior.
-
-## Como usar
-
-Crie um projeto Flutter e substitua `lib` e `pubspec.yaml` pelos arquivos deste pacote.
+O projeto já possui `supabase_flutter` e inicialização via `dart-define`.
 
 ```bash
 flutter pub get
-flutter run
+flutter run --dart-define-from-file=config/dev.json
 ```
 
-Não há dependências externas nesta versão.
+## O que ainda é visual
+
+As telas novas estão conectadas pela navegação, mas os dados exibidos são exemplos. Ainda faltam conectar autenticação, CRUD de compromissos, grupos, disponibilidade e notificações locais à lógica real do aplicativo.
