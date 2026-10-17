@@ -171,6 +171,9 @@ class InsetField extends StatefulWidget {
     this.erro,
     this.keyboardType,
     this.onChanged,
+    this.controller,
+    this.readOnly = false,
+    this.onTap,
   });
 
   final String label;
@@ -181,6 +184,9 @@ class InsetField extends StatefulWidget {
   final String? erro;
   final TextInputType? keyboardType;
   final ValueChanged<String>? onChanged;
+  final TextEditingController? controller;
+  final bool readOnly;
+  final VoidCallback? onTap;
 
   @override
   State<InsetField> createState() => _InsetFieldState();
@@ -189,6 +195,8 @@ class InsetField extends StatefulWidget {
 class _InsetFieldState extends State<InsetField> {
   late final TextEditingController _controller =
       TextEditingController(text: widget.valor);
+
+  bool _visivel = false;
 
   @override
   void dispose() {
@@ -238,11 +246,13 @@ class _InsetFieldState extends State<InsetField> {
               children: [
                 Expanded(
                   child: TextField(
-                    controller: _controller,
-                    obscureText: widget.obscure,
+                    controller: widget.controller ?? _controller,
+                    obscureText: widget.obscure && !_visivel,
                     keyboardType: widget.keyboardType,
                     onChanged: widget.onChanged,
                     cursorColor: t.acentoBase,
+                    readOnly: widget.readOnly,
+                    onTap: widget.onTap,
                     style: AgendaText.corpo(t),
                     decoration: InputDecoration(
                       isDense: true,
@@ -252,7 +262,23 @@ class _InsetFieldState extends State<InsetField> {
                     ),
                   ),
                 ),
-                if (widget.trailing != null) widget.trailing!,
+                if (widget.obscure)
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => setState(() => _visivel = !_visivel),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Icon(
+                        _visivel
+                            ? Icons.visibility_off_rounded
+                            : Icons.visibility_rounded,
+                        size: 20,
+                        color: t.textoFraco,
+                      ),
+                    ),
+                  )
+                else if (widget.trailing != null)
+                  widget.trailing!,
               ],
             ),
           ),
@@ -281,7 +307,6 @@ class _InsetFieldState extends State<InsetField> {
     );
   }
 }
-
 /// Botão primário com relevo. `perigo` usa a cor de erro (excluir, sair).
 class PrimaryButton extends StatelessWidget {
   const PrimaryButton({

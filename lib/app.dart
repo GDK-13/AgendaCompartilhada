@@ -1,5 +1,5 @@
 
-
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 
 import 'controllers/theme_controller.dart';
@@ -23,7 +23,9 @@ class AgendaApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           title: 'Agenda Compartilhada',
           theme: AppThemes.build(AppThemes.byId(themeId)),
-          initialRoute: AppRoutes.login,
+          initialRoute: Supabase.instance.client.auth.currentSession != null
+            ? AppRoutes.home
+            : AppRoutes.login,
           routes: AppRoutes.routes(themeController: themeController),
         );
       },

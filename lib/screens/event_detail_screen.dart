@@ -2,9 +2,31 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 
+import '../models/modelos.dart';
 import '../routes/app_routes.dart';
+import '../services/compromisso_service.dart';
+import '../services/erros.dart';
 import '../theme/agenda_theme.dart';
 import '../widgets/agenda_widgets.dart';
+
+const _diasSemana = [
+  'Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado',
+];
+const _meses = [
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+];
+
+String _hm(DateTime d) =>
+    '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+
+String _duracao(Duration d) {
+  final h = d.inHours;
+  final m = d.inMinutes % 60;
+  if (h == 0) return '$m min';
+  if (m == 0) return h == 1 ? '1 hora' : '$h horas';
+  return '$h h $m min';
+}
 
 class EventDetailScreen extends StatefulWidget {
   const EventDetailScreen({super.key});
@@ -14,7 +36,14 @@ class EventDetailScreen extends StatefulWidget {
 }
 
 class _EventDetailScreenState extends State<EventDetailScreen> {
+  Compromisso? _c;
   bool _lembrete = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _c ??= ModalRoute.of(context)?.settings.arguments as Compromisso?;
+  }
 
   Future<void> _confirmarExclusao() async {
     final t = context.tokens;
@@ -110,13 +139,47 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     );
 
     if (excluir == true && mounted) {
-      Navigator.pop(context);
+      try {
+        await CompromissoService.excluir(_c!.id);
+        if (mounted) Navigator.pop(context, true);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(traduzirErro(e))));
+        }
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final c = _c;
+
+    if (c == null) {
+      return ScreenScaffold(
+        children: [
+          Row(
+            children: [
+              RoundIconButton(
+                icone: Icons.chevron_left_rounded,
+                onTap: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 40),
+          const EmptyState(
+            icone: Icons.event_busy_outlined,
+            titulo: 'Compromisso não encontrado',
+            texto: 'Volte e abra o compromisso de novo.',
+          ),
+        ],
+      );
+    }
+
+    final dataTexto =
+        '${_diasSemana[c.inicio.weekday % 7]}, ${c.inicio.day} de ${_meses[c.inicio.month - 1]}';
+    final lembreteEm = c.inicio.subtract(const Duration(minutes: 30));
 
     return ScreenScaffold(
       children: [
@@ -162,7 +225,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Aula de Mobile',
+                          c.titulo,
                           style: TextStyle(
                             color: t.textoPrincipal,
                             fontSize: 23,
@@ -170,10 +233,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           ),
                         ),
                         const SizedBox(height: 3),
-                        Text(
-                          'Quinta, 1 de outubro',
-                          style: AgendaText.corpoSuave(t),
-                        ),
+                        Text(dataTexto, style: AgendaText.corpoSuave(t)),
                       ],
                     ),
                   ),
@@ -188,7 +248,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      '10:30 – 12:00',
+                      '${_hm(c.inicio)} – ${_hm(c.fim)}',
                       style: TextStyle(
                         color: t.textoPrincipal,
                         fontSize: 18,
@@ -196,7 +256,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       ),
                     ),
                   ),
-                  Text('1 h 30 min', style: AgendaText.corpoSuave(t)),
+                  Text(
+                    _duracao(c.fim.difference(c.inicio)),
+                    style: AgendaText.corpoSuave(t),
+                  ),
                 ],
               ),
               const SizedBox(height: 22),
@@ -206,7 +269,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Hoje às 10:00 · 30 min antes',
+                      'Às ${_hm(lembreteEm)} · 30 min antes',
                       style: AgendaText.corpo(t),
                     ),
                   ),
@@ -231,7 +294,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         const SizedBox(height: 30),
         PrimaryButton(
           label: 'Editar compromisso',
-          onPressed: () => Navigator.pushNamed(context, AppRoutes.eventForm),
+          onPressed: () async {
+            final mudou = await Navigator.pushNamed(
+              context,
+              AppRoutes.eventForm,
+              arguments: c,
+            );
+            if (mudou == true && mounted) Navigator.pop(context, true);
+          },
         ),
         const SizedBox(height: 14),
         GlassButton(
