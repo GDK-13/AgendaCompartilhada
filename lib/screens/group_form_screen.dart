@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../services/erros.dart';
 import '../services/grupo_service.dart';
 import '../widgets/agenda_widgets.dart';
+import '../widgets/convite_dialog.dart';
 
 class GroupFormScreen extends StatefulWidget {
   const GroupFormScreen({super.key});
@@ -36,23 +36,7 @@ class _GroupFormScreenState extends State<GroupFormScreen> {
     try {
       final g = await GrupoService.criar(_nome.text);
       if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Grupo criado!'),
-          content: SelectableText('Código para convidar:\n\n${g.codigo}'),
-          actions: [
-            TextButton(
-              onPressed: () => Clipboard.setData(ClipboardData(text: g.codigo)),
-              child: const Text('Copiar'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
+      await mostrarConvite(context, g, titulo: 'Grupo criado!');
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       debugPrint('Erro ao criar grupo: $e');

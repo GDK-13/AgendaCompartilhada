@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/modelos.dart';
 import 'auth_service.dart';
+import 'convite_service.dart';
 import 'supabase_service.dart';
 
 class GrupoService {
@@ -30,7 +31,9 @@ class GrupoService {
     return Grupo.fromMap(Map<String, dynamic>.from(row as Map));
   }
 
-  static Future<String> entrar(String codigo) async {
+  /// Aceita o código puro, o link de convite ou a mensagem inteira colada.
+  static Future<String> entrar(String entrada) async {
+    final codigo = ConviteService.extrairCodigo(entrada) ?? entrada.trim();
     final id = await _db.rpc('entrar_grupo', params: {'p_codigo': codigo});
     return id as String;
   }
