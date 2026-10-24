@@ -49,10 +49,9 @@ class SettingsScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        InfoNote(
+        const InfoNote(
           icone: Icons.palette_outlined,
-          texto:
-              'A troca de tema funciona. A persistência da escolha foi deixada de fora para você implementar junto das demais features.',
+          texto: 'Sua escolha de tema fica salva neste aparelho.',
         ),
       ],
     );

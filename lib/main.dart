@@ -27,6 +27,7 @@ Future<void> main() async {
   );
 
   final themeController = ThemeController();
+  await themeController.carregar();
 
   runApp(
     AgendaApp(
