@@ -17,7 +17,8 @@ class CompromissoService {
         .select()
         .lt('inicio', _utc(fim))
         .gt('fim', _utc(ini))
-        .order('inicio');
+        .order('inicio')
+        .timeout(limiteRede);
     return (rows as List)
         .map((r) => Compromisso.fromMap(Map<String, dynamic>.from(r as Map)))
         .toList();
@@ -33,7 +34,7 @@ class CompromissoService {
       'titulo': titulo.trim(),
       'inicio': _utc(inicio),
       'fim': _utc(fim),
-    });
+    }).timeout(limiteRede);
   }
 
   static Future<void> atualizar({
@@ -46,10 +47,10 @@ class CompromissoService {
       'titulo': titulo.trim(),
       'inicio': _utc(inicio),
       'fim': _utc(fim),
-    }).eq('id', id);
+    }).eq('id', id).timeout(limiteRede);
   }
 
   static Future<void> excluir(String id) async {
-    await _db.from('compromissos').delete().eq('id', id);
+    await _db.from('compromissos').delete().eq('id', id).timeout(limiteRede);
   }
 }

@@ -5,10 +5,12 @@ import '../models/modelos.dart';
 import '../routes/app_routes.dart';
 import '../services/auth_service.dart';
 import '../services/compromisso_service.dart';
+import '../services/convite_service.dart';
 import '../services/erros.dart';
 import '../services/grupo_service.dart';
 import '../theme/agenda_theme.dart';
 import '../widgets/agenda_widgets.dart';
+import '../widgets/loading_dialog.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({
@@ -30,6 +32,10 @@ class _HomeShellState extends State<HomeShell> {
   bool _carregando = true;
   String? _erro;
 
+  // Identifica a requisição mais recente: respostas antigas (e mais lentas)
+  // são descartadas para não sobrescrever o dia que está na tela.
+  int _reqId = 0;
+
   @override
   void initState() {
     super.initState();
@@ -37,6 +43,7 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   Future<void> _recarregar() async {
+    final id = ++_reqId;
     setState(() {
       _carregando = true;
       _erro = null;
@@ -46,15 +53,15 @@ class _HomeShellState extends State<HomeShell> {
         CompromissoService.doDia(_dia),
         GrupoService.listar(),
       ]);
-      if (!mounted) return;
+      if (!mounted || id != _reqId) return;
       setState(() {
         _compromissos = r[0] as List<Compromisso>;
         _grupos = r[1] as List<Grupo>;
       });
     } catch (e) {
-      if (mounted) setState(() => _erro = traduzirErro(e));
+      if (mounted && id == _reqId) setState(() => _erro = traduzirErro(e));
     } finally {
-      if (mounted) setState(() => _carregando = false);
+      if (mounted && id == _reqId) setState(() => _carregando = false);
     }
   }
 
@@ -94,8 +101,17 @@ class _HomeShellState extends State<HomeShell> {
       ),
     );
     if (codigo == null || codigo.trim().isEmpty) return;
+    // Extrai o código ANTES de pôr em maiúsculas: se o usuário colou o link
+    // ou a mensagem inteira, o "agenda://convite?codigo=" precisa continuar
+    // em minúsculas para ser reconhecido.
+    final puro = ConviteService.extrairCodigo(codigo) ?? codigo.trim();
     try {
-      await GrupoService.entrar(codigo.trim().toUpperCase());
+      if (!mounted) return;
+      await comLoading(
+        context,
+        () => GrupoService.entrar(puro.toUpperCase()),
+        texto: 'Entrando no grupo...',
+      );
       _recarregar();
     } catch (e) {
       debugPrint('Erro ao entrar no grupo: $e');
@@ -154,11 +170,17 @@ class _HomeShellState extends State<HomeShell> {
         _ProfileScreen(
           onTab: _changeTab,
           onSettings: () => Navigator.pushNamed(context, AppRoutes.settings),
+          // A navegação para o login é feita pelo listener de signedOut
+          // no app.dart; navegar aqui também causaria uma rota duplicada.
           onLogout: () async {
-            await AuthService.sair();
-            if (!context.mounted) return;
-            Navigator.pushNamedAndRemoveUntil(
-                context, AppRoutes.login, (_) => false);
+            try {
+              await AuthService.sair();
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text(traduzirErro(e))));
+              }
+            }
           },
         ),
       ],
@@ -233,7 +255,7 @@ class _AgendaScreen extends StatelessWidget {
             Expanded(
               child: Text('Minha agenda', style: AgendaText.titulo(t)),
             ),
-            MemberAvatar(nome: 'Kevin Tiago', cor: t.membroA, tamanho: 48),
+            MemberAvatar(nome: AuthService.nome, cor: t.membroA, tamanho: 48),
           ],
         ),
         const SizedBox(height: 18),
@@ -260,7 +282,11 @@ class _AgendaScreen extends StatelessWidget {
             texto: 'Você não tem compromissos neste dia.',
           )
         else
-          _DayTimeline(compromissos: compromissos, onEventTap: onDetalhe),
+          _DayTimeline(
+            dia: dia,
+            compromissos: compromissos,
+            onEventTap: onDetalhe,
+          ),
       ],
     );
   }
@@ -495,10 +521,12 @@ class _SetaSemana extends StatelessWidget {
 
 class _DayTimeline extends StatelessWidget {
   const _DayTimeline({
+    required this.dia,
     required this.compromissos,
     required this.onEventTap,
   });
 
+  final DateTime dia;
   final List<Compromisso> compromissos;
   final ValueChanged<Compromisso> onEventTap;
 
@@ -507,8 +535,13 @@ class _DayTimeline extends StatelessWidget {
 
   static double _hora(DateTime d) => d.hour + d.minute / 60;
 
-  static double _horaFim(Compromisso c) =>
-      DateUtils.isSameDay(c.inicio, c.fim) ? _hora(c.fim) : 24.0;
+  // Evento que começou em um dia anterior aparece desde 00:00 neste dia.
+  double _horaIni(Compromisso c) =>
+      DateUtils.isSameDay(c.inicio, dia) ? _hora(c.inicio) : 0.0;
+
+  // Evento que termina em um dia posterior vai até 24:00 neste dia.
+  double _horaFim(Compromisso c) =>
+      DateUtils.isSameDay(c.fim, dia) ? _hora(c.fim) : 24.0;
 
   static String _hm(DateTime d) =>
       '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
@@ -525,7 +558,7 @@ class _DayTimeline extends StatelessWidget {
     var inicioH = 8;
     var fimH = 16;
     for (final c in compromissos) {
-      final i = _hora(c.inicio).floor();
+      final i = _horaIni(c).floor();
       final f = _horaFim(c).ceil();
       if (i < inicioH) inicioH = i;
       if (f > fimH) fimH = f;
@@ -565,9 +598,9 @@ class _DayTimeline extends StatelessWidget {
                 ],
                 for (var i = 0; i < compromissos.length; i++)
                   _TimelineEvent(
-                    top: (_hora(compromissos[i].inicio) - inicioH) * hourHeight,
+                    top: (_horaIni(compromissos[i]) - inicioH) * hourHeight,
                     height: ((_horaFim(compromissos[i]) -
-                                    _hora(compromissos[i].inicio)) *
+                                    _horaIni(compromissos[i])) *
                                 hourHeight -
                             6)
                         .clamp(34.0, double.infinity),
@@ -838,6 +871,8 @@ class _FreeSlotsScreenState extends State<_FreeSlotsScreen> {
     setState(() {
       _buscando = true;
       _erro = null;
+      _livres = null;
+      _ocupacoes = [];
     });
     try {
       final r = await Future.wait([
@@ -948,6 +983,10 @@ class _FreeSlotsScreenState extends State<_FreeSlotsScreen> {
               ],
             ),
           ),
+          if (_buscando) ...[
+            const SizedBox(height: 32),
+            const Center(child: CircularProgressIndicator()),
+          ],
           if (_erro != null) ...[
             const SizedBox(height: 16),
             StatusBanner(

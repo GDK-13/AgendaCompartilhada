@@ -1,6 +1,11 @@
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 String traduzirErro(Object e) {
+  if (e is TimeoutException) {
+    return 'O servidor demorou demais para responder. Verifique sua conexão e tente de novo.';
+  }
   if (e is AuthException) {
     final m = e.message.toLowerCase();
     if (m.contains('invalid login')) return 'E-mail ou senha incorretos.';

@@ -13,7 +13,9 @@ class AuthService {
       (_auth.currentUser?.userMetadata?['nome'] as String?) ?? 'Usuário';
 
   static Future<void> entrar(String email, String senha) async {
-    await _auth.signInWithPassword(email: email.trim(), password: senha);
+    await _auth
+        .signInWithPassword(email: email.trim(), password: senha)
+        .timeout(limiteRede);
   }
 
   static Future<bool> criarConta({
@@ -25,7 +27,7 @@ class AuthService {
       email: email.trim(),
       password: senha,
       data: {'nome': nome.trim()},
-    );
+    ).timeout(limiteRede);
     return res.session != null;
   }
 

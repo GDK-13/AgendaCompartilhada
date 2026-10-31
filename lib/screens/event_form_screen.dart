@@ -33,6 +33,19 @@ class _EventFormScreenState extends State<EventFormScreen> {
   String _h(TimeOfDay h) =>
       '${h.hour.toString().padLeft(2, '0')}:${h.minute.toString().padLeft(2, '0')}';
 
+  bool get _viraNoite =>
+      _fim.hour * 60 + _fim.minute < _ini.hour * 60 + _ini.minute;
+
+  // Se o horário de fim é menor que o de início (ex.: 22:00 até 01:00), o
+  // compromisso termina no dia seguinte. Fim igual ao início continua inválido.
+  DateTime _calcularFim() => DateTime(
+        _dia.year,
+        _dia.month,
+        _dia.day + (_viraNoite ? 1 : 0),
+        _fim.hour,
+        _fim.minute,
+      );
+
   void _atualizarTextos() {
     _dataTxt.text = _d(_dia);
     _iniTxt.text = _h(_ini);
@@ -88,7 +101,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
 
   Future<void> _salvar() async {
     final inicio = DateTime(_dia.year, _dia.month, _dia.day, _ini.hour, _ini.minute);
-    final fim = DateTime(_dia.year, _dia.month, _dia.day, _fim.hour, _fim.minute);
+    final fim = _calcularFim();
 
     if (_titulo.text.trim().isEmpty) {
       setState(() => _erro = 'Dê um título ao compromisso.');
@@ -162,6 +175,13 @@ class _EventFormScreenState extends State<EventFormScreen> {
                   ),
                 ],
               ),
+              if (_viraNoite) ...[
+                const SizedBox(height: 10),
+                Text(
+                  'Termina no dia seguinte (${_d(DateTime(_dia.year, _dia.month, _dia.day + 1))}).',
+                  style: AgendaText.corpoSuave(t),
+                ),
+              ],
               const SizedBox(height: 20),
               Divider(color: t.linha),
               const SizedBox(height: 12),

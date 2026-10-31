@@ -8,6 +8,7 @@ import '../services/compromisso_service.dart';
 import '../services/erros.dart';
 import '../theme/agenda_theme.dart';
 import '../widgets/agenda_widgets.dart';
+import '../widgets/loading_dialog.dart';
 
 const _diasSemana = [
   'Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado',
@@ -140,7 +141,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
     if (excluir == true && mounted) {
       try {
-        await CompromissoService.excluir(_c!.id);
+        await comLoading(
+          context,
+          () => CompromissoService.excluir(_c!.id),
+          texto: 'Excluindo...',
+        );
         if (mounted) Navigator.pop(context, true);
       } catch (e) {
         if (mounted) {
@@ -300,7 +305,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               AppRoutes.eventForm,
               arguments: c,
             );
-            if (mudou == true && mounted) Navigator.pop(context, true);
+            if (mudou == true && context.mounted) Navigator.pop(context, true);
           },
         ),
         const SizedBox(height: 14),

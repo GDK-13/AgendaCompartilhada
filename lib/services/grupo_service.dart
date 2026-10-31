@@ -18,7 +18,8 @@ class GrupoService {
     final rows = await _db
         .from('grupos')
         .select('id, nome, codigo, participacoes(count)')
-        .order('criado_em');
+        .order('criado_em')
+        .timeout(limiteRede);
     return _lista(rows).map(Grupo.fromMap).toList();
   }
 
@@ -27,14 +28,17 @@ class GrupoService {
         .from('grupos')
         .insert({'nome': nome.trim(), 'criador_id': AuthService.uid})
         .select('id, nome, codigo')
-        .single();
+        .single()
+        .timeout(limiteRede);
     return Grupo.fromMap(Map<String, dynamic>.from(row as Map));
   }
 
   /// Aceita o código puro, o link de convite ou a mensagem inteira colada.
   static Future<String> entrar(String entrada) async {
     final codigo = ConviteService.extrairCodigo(entrada) ?? entrada.trim();
-    final id = await _db.rpc('entrar_grupo', params: {'p_codigo': codigo});
+    final id = await _db
+        .rpc('entrar_grupo', params: {'p_codigo': codigo})
+        .timeout(limiteRede);
     return id as String;
   }
 
@@ -47,7 +51,7 @@ class GrupoService {
       'p_grupo_id': grupoId,
       'p_inicio': _utc(inicio),
       'p_fim': _utc(fim),
-    });
+    }).timeout(limiteRede);
     return _lista(rows).map(Ocupacao.fromMap).toList();
   }
 
@@ -62,7 +66,7 @@ class GrupoService {
       'p_inicio': _utc(inicio),
       'p_fim': _utc(fim),
       'p_duracao_minutos': duracaoMinutos,
-    });
+    }).timeout(limiteRede);
     return _lista(rows).map(Intervalo.fromMap).toList();
   }
 }

@@ -134,7 +134,7 @@ class AppTheme {
   }
 }
 
-/// Estilos de texto: Figma "Texto/<tamanho> <peso>" -> AppText.t(<tamanho>, <peso>)
+/// Estilos de texto: Figma `"Texto/<tamanho> <peso>"` -> `AppText.t(<tamanho>, <peso>)`
 class AppText {
   static TextStyle t(BuildContext c, double size, FontWeight w, {bool suave = false}) =>
       TextStyle(fontSize: size, fontWeight: w, color: AppPalette.of(c)[suave ? 'texto/suave' : 'texto/principal']);
