@@ -32,8 +32,6 @@ class _HomeShellState extends State<HomeShell> {
   bool _carregando = true;
   String? _erro;
 
-  // Identifica a requisição mais recente: respostas antigas (e mais lentas)
-  // são descartadas para não sobrescrever o dia que está na tela.
   int _reqId = 0;
 
   @override
@@ -122,22 +120,6 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
-  void _mostrarCodigo(Grupo g) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(g.nome),
-        content: SelectableText('Código para convidar:\n\n${g.codigo}'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _changeTab(int index) {
     setState(() => _index = index);
   }
@@ -164,14 +146,12 @@ class _HomeShellState extends State<HomeShell> {
           carregando: _carregando,
           onNovo: () => _abrir(AppRoutes.groupForm),
           onEntrar: _entrarComCodigo,
-          onAbrir: _mostrarCodigo,
+          onAbrir: (g) => _abrir(AppRoutes.groupDetail, args: g),
         ),
         _FreeSlotsScreen(onTab: _changeTab, grupos: _grupos),
         _ProfileScreen(
           onTab: _changeTab,
           onSettings: () => Navigator.pushNamed(context, AppRoutes.settings),
-          // A navegação para o login é feita pelo listener de signedOut
-          // no app.dart; navegar aqui também causaria uma rota duplicada.
           onLogout: () async {
             try {
               await AuthService.sair();
@@ -330,7 +310,6 @@ class _WeekStrip extends StatelessWidget {
 
   static String _mesCurto(int m) => _mesLongo(m).substring(0, 3);
 
-  // "Outubro 2026", "Set – Out 2026" ou "Dez 2026 – Jan 2027"
   static String _titulo(DateTime ini, DateTime fim) {
     if (ini.year == fim.year && ini.month == fim.month) {
       return '${_mesLongo(ini.month)} ${ini.year}';

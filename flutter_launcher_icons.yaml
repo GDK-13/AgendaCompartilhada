@@ -1,0 +1,14 @@
+# Configuração do ícone do app (Android).
+# 1) Substitua assets/icon/icon.png e assets/icon/icon_foreground.png pela sua arte.
+# 2) flutter pub get
+# 3) dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: false
+  image_path: "assets/icon/icon.png"
+  min_sdk_android: 21
+  # Ícone adaptativo (Android 8+): fundo + figura em camadas separadas.
+  adaptive_icon_background: "#FFF4E6"
+  adaptive_icon_foreground: "assets/icon/icon_foreground.png"
+  # Opcional, Android 13+ (ícone temático). Descomente e crie o arquivo:
+  # adaptive_icon_monochrome: "assets/icon/icon_monochrome.png"
