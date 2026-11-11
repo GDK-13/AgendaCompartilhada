@@ -4,13 +4,30 @@ class ConviteService {
   static const _esquema = 'agenda';
   static const _host = 'convite';
 
-  /// Código recebido por link enquanto o usuário ainda não estava logado.
+  static const dominioWeb = 'gdk-13.github.io';
+  static const caminhoWeb = '/agenda-convite';
+
   static String? pendente;
 
-  static final _regexLink = RegExp('$_esquema://$_host\\?codigo=([^\\s&]+)');
+  static final _regexLink = RegExp(
+    r'(?:' +
+        _esquema +
+        r'://' +
+        _host +
+        r'|https://' +
+        RegExp.escape(dominioWeb) +
+        RegExp.escape(caminhoWeb) +
+        r')/?\?codigo=([^\s&#]+)',
+  );
 
-  /// Ex.: agenda://convite?codigo=ABC123
   static String gerarLink(String codigo) => Uri(
+        scheme: 'https',
+        host: dominioWeb,
+        path: '$caminhoWeb/',
+        queryParameters: {'codigo': codigo},
+      ).toString();
+
+  static String gerarLinkApp(String codigo) => Uri(
         scheme: _esquema,
         host: _host,
         queryParameters: {'codigo': codigo},
@@ -18,10 +35,9 @@ class ConviteService {
 
   static String mensagem(Grupo g) =>
       'Entre no grupo "${g.nome}" na Agenda Compartilhada!\n\n'
-      'Código: ${g.codigo}\n'
-      'Link: ${gerarLink(g.codigo)}';
+      '${gerarLink(g.codigo)}\n\n'
+      'Se o link não abrir, use o código: ${g.codigo}';
 
-  /// Aceita link, mensagem colada inteira ou o código puro.
   static String? extrairCodigo(String entrada) {
     final txt = entrada.trim();
     if (txt.isEmpty) return null;
