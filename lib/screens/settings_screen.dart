@@ -51,7 +51,7 @@ class SettingsScreen extends StatelessWidget {
         const SizedBox(height: 16),
         const InfoNote(
           icone: Icons.palette_outlined,
-          texto: 'Sua escolha de tema fica salva neste aparelho.',
+          texto: 'Sua escolha de tema fica salva na sua conta e neste aparelho.',
         ),
       ],
     );

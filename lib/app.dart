@@ -38,8 +38,12 @@ class _AgendaAppState extends State<AgendaApp> {
   void initState() {
     super.initState();
     _iniciarLinks();
+    // App aberto já com sessão salva: busca o tema da conta.
+    widget.themeController.sincronizarComConta();
     _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       if (data.event == AuthChangeEvent.signedIn) {
+        // Aplica o tema salvo na conta de quem acabou de entrar.
+        widget.themeController.sincronizarComConta();
         final c = ConviteService.pendente;
         if (c != null) {
           ConviteService.pendente = null;

@@ -31,5 +31,26 @@ class AuthService {
     return res.session != null;
   }
 
+  /// Tema guardado nos metadados da conta (cópia local da sessão).
+  static String? get temaSalvo =>
+      _auth.currentUser?.userMetadata?['tema'] as String?;
+
+  /// Tema da conta consultado no servidor; se falhar, usa a cópia local.
+  static Future<String?> temaDaConta() async {
+    try {
+      final r = await _auth.getUser().timeout(limiteRede);
+      return r.user?.userMetadata?['tema'] as String?;
+    } catch (_) {
+      return temaSalvo;
+    }
+  }
+
+  /// Os metadados são mesclados: o campo 'nome' continua intacto.
+  static Future<void> salvarTema(String tema) async {
+    await _auth
+        .updateUser(UserAttributes(data: {'tema': tema}))
+        .timeout(limiteRede);
+  }
+
   static Future<void> sair() => _auth.signOut();
 }
