@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/modelos.dart';
 import '../services/compromisso_service.dart';
 import '../services/erros.dart';
+import '../services/notificacao_service.dart';
 import '../theme/agenda_theme.dart';
 import '../widgets/agenda_widgets.dart';
 
@@ -64,6 +65,9 @@ class _EventFormScreenState extends State<EventFormScreen> {
       _dia = arg.inicio;
       _ini = TimeOfDay.fromDateTime(arg.inicio);
       _fim = TimeOfDay.fromDateTime(arg.fim);
+      NotificacaoService.ativo(arg.id).then((v) {
+        if (mounted) setState(() => _lembrete = v);
+      });
     }
     _atualizarTextos();
   }
@@ -115,10 +119,21 @@ class _EventFormScreenState extends State<EventFormScreen> {
     setState(() { _salvando = true; _erro = null; });
     try {
       if (_editando == null) {
-        await CompromissoService.criar(titulo: _titulo.text, inicio: inicio, fim: fim);
+        final novo = await CompromissoService.criar(
+            titulo: _titulo.text, inicio: inicio, fim: fim);
+        await NotificacaoService.aplicar(novo, ativo: _lembrete);
       } else {
         await CompromissoService.atualizar(
             id: _editando!.id, titulo: _titulo.text, inicio: inicio, fim: fim);
+        await NotificacaoService.aplicar(
+          Compromisso(
+            id: _editando!.id,
+            titulo: _titulo.text.trim(),
+            inicio: inicio,
+            fim: fim,
+          ),
+          ativo: _lembrete,
+        );
       }
       if (!mounted) return;
       Navigator.pop(context, true); // true = houve alteração, a Home recarrega
@@ -193,7 +208,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
                       children: [
                         Text('Lembrete local', style: AgendaText.corpo(t)),
                         const SizedBox(height: 4),
-                        Text('Aviso 30 minutos antes do início',
+                        Text('Aviso 30 minutos antes e na hora do início',
                             style: AgendaText.corpoSuave(t)),
                       ],
                     ),

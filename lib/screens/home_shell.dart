@@ -8,9 +8,11 @@ import '../services/compromisso_service.dart';
 import '../services/convite_service.dart';
 import '../services/erros.dart';
 import '../services/grupo_service.dart';
+import '../services/notificacao_service.dart';
 import '../theme/agenda_theme.dart';
 import '../widgets/agenda_widgets.dart';
 import '../widgets/loading_dialog.dart';
+import '../widgets/month_calendar.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({
@@ -32,12 +34,53 @@ class _HomeShellState extends State<HomeShell> {
   bool _carregando = true;
   String? _erro;
 
+  // Visão mensal (table_calendar).
+  bool _mensal = false;
+  DateTime _mesFoco = DateTime.now();
+  List<Compromisso> _compromissosMes = [];
+
   int _reqId = 0;
+  int _reqMes = 0;
 
   @override
   void initState() {
     super.initState();
     _recarregar();
+    _carregarMes();
+    _prepararLembretes();
+  }
+
+  // Compromissos do mês exibido, só para os marcadores do calendário.
+  Future<void> _carregarMes() async {
+    final id = ++_reqMes;
+    try {
+      final r = await CompromissoService.doMes(_mesFoco);
+      if (!mounted || id != _reqMes) return;
+      setState(() => _compromissosMes = r);
+    } catch (e) {
+      debugPrint('Erro ao carregar o mês: $e');
+    }
+  }
+
+  void _mudarMes(DateTime m) {
+    if (m.year == _mesFoco.year && m.month == _mesFoco.month) return;
+    setState(() => _mesFoco = m);
+    _carregarMes();
+  }
+
+  // Pede permissão e refaz os lembretes dos próximos 30 dias.
+  Future<void> _prepararLembretes() async {
+    await NotificacaoService.pedirPermissao();
+    try {
+      final agora = DateTime.now();
+      final prox = await CompromissoService.doPeriodo(
+        agora,
+        agora.add(const Duration(days: 30)),
+      );
+      await NotificacaoService.sincronizar(prox);
+    } catch (e) {
+      debugPrint('Erro ao preparar lembretes: $e');
+    }
   }
 
   Future<void> _recarregar() async {
@@ -66,12 +109,18 @@ class _HomeShellState extends State<HomeShell> {
   // Abre uma rota e recarrega se ela devolveu true.
   Future<void> _abrir(String rota, {Object? args}) async {
     final mudou = await Navigator.pushNamed(context, rota, arguments: args);
-    if (mudou == true) _recarregar();
+    if (mudou == true) {
+      _recarregar();
+      _carregarMes();
+    }
   }
 
   void _mudarDia(DateTime d) {
     _dia = d;
+    final mudouMes = d.year != _mesFoco.year || d.month != _mesFoco.month;
+    if (mudouMes) _mesFoco = d;
     _recarregar();
+    if (mudouMes) _carregarMes();
   }
 
   Future<void> _entrarComCodigo() async {
@@ -137,6 +186,11 @@ class _HomeShellState extends State<HomeShell> {
           erro: _erro,
           onRetry: _recarregar,
           onDia: _mudarDia,
+          mensal: _mensal,
+          mesFoco: _mesFoco,
+          compromissosMes: _compromissosMes,
+          onVisao: (v) => setState(() => _mensal = v),
+          onMes: _mudarMes,
           onNovo: () => _abrir(AppRoutes.eventForm),
           onDetalhe: (c) => _abrir(AppRoutes.eventDetail, args: c),
         ),
@@ -154,6 +208,7 @@ class _HomeShellState extends State<HomeShell> {
           onSettings: () => Navigator.pushNamed(context, AppRoutes.settings),
           onLogout: () async {
             try {
+              await NotificacaoService.cancelarTodas();
               await AuthService.sair();
             } catch (e) {
               if (context.mounted) {
@@ -201,6 +256,11 @@ class _AgendaScreen extends StatelessWidget {
     required this.erro,
     required this.onRetry,
     required this.onDia,
+    required this.mensal,
+    required this.mesFoco,
+    required this.compromissosMes,
+    required this.onVisao,
+    required this.onMes,
     required this.onNovo,
     required this.onDetalhe,
   });
@@ -214,6 +274,11 @@ class _AgendaScreen extends StatelessWidget {
   final ValueChanged<DateTime> onDia;
   final VoidCallback onNovo;
   final ValueChanged<Compromisso> onDetalhe;
+  final bool mensal;
+  final DateTime mesFoco;
+  final List<Compromisso> compromissosMes;
+  final ValueChanged<bool> onVisao;
+  final ValueChanged<DateTime> onMes;
 
   @override
   Widget build(BuildContext context) {
@@ -248,7 +313,18 @@ class _AgendaScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
         ],
-        _WeekStrip(dia: dia, onDia: onDia),
+        _VisaoToggle(mensal: mensal, onChanged: onVisao),
+        const SizedBox(height: 12),
+        if (mensal)
+          MonthCalendar(
+            selecionado: dia,
+            foco: mesFoco,
+            compromissos: compromissosMes,
+            onDia: onDia,
+            onMes: onMes,
+          )
+        else
+          _WeekStrip(dia: dia, onDia: onDia),
         const SizedBox(height: 16),
         if (carregando)
           const Padding(
@@ -268,6 +344,59 @@ class _AgendaScreen extends StatelessWidget {
             onEventTap: onDetalhe,
           ),
       ],
+    );
+  }
+}
+
+/// Alterna entre a faixa semanal e o calendário mensal.
+class _VisaoToggle extends StatelessWidget {
+  const _VisaoToggle({required this.mensal, required this.onChanged});
+
+  final bool mensal;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+
+    Widget opcao(String label, bool ativo, bool valor) => GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => onChanged(valor),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+            decoration: BoxDecoration(
+              color: ativo ? t.acentoBase : Colors.transparent,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: ativo ? t.acentoSobre : t.textoSuave,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        );
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: t.vidroNormal,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: t.vidroBorda),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            opcao('Semana', !mensal, false),
+            opcao('Mês', mensal, true),
+          ],
+        ),
+      ),
     );
   }
 }

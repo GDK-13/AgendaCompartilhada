@@ -6,6 +6,7 @@ import '../models/modelos.dart';
 import '../routes/app_routes.dart';
 import '../services/compromisso_service.dart';
 import '../services/erros.dart';
+import '../services/notificacao_service.dart';
 import '../theme/agenda_theme.dart';
 import '../widgets/agenda_widgets.dart';
 import '../widgets/loading_dialog.dart';
@@ -43,7 +44,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _c ??= ModalRoute.of(context)?.settings.arguments as Compromisso?;
+    if (_c != null) return;
+    final c = ModalRoute.of(context)?.settings.arguments as Compromisso?;
+    _c = c;
+    if (c != null) {
+      NotificacaoService.ativo(c.id).then((v) {
+        if (mounted) setState(() => _lembrete = v);
+      });
+    }
   }
 
   Future<void> _confirmarExclusao() async {
@@ -143,7 +151,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       try {
         await comLoading(
           context,
-          () => CompromissoService.excluir(_c!.id),
+          () async {
+            await CompromissoService.excluir(_c!.id);
+            await NotificacaoService.remover(_c!.id);
+          },
           texto: 'Excluindo...',
         );
         if (mounted) Navigator.pop(context, true);
@@ -274,7 +285,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Às ${_hm(lembreteEm)} · 30 min antes',
+                      '${_hm(lembreteEm)} (30 min antes) e ${_hm(c.inicio)}',
                       style: AgendaText.corpo(t),
                     ),
                   ),
@@ -282,6 +293,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     valor: _lembrete,
                     onChanged: (valor) {
                       setState(() => _lembrete = valor);
+                      NotificacaoService.aplicar(c, ativo: valor);
                     },
                   ),
                 ],
