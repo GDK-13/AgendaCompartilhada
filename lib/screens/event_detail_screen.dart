@@ -9,6 +9,7 @@ import '../services/erros.dart';
 import '../services/notificacao_service.dart';
 import '../theme/agenda_theme.dart';
 import '../widgets/agenda_widgets.dart';
+import '../widgets/lembretes_editor.dart';
 import '../widgets/loading_dialog.dart';
 
 const _diasSemana = [
@@ -39,7 +40,7 @@ class EventDetailScreen extends StatefulWidget {
 
 class _EventDetailScreenState extends State<EventDetailScreen> {
   Compromisso? _c;
-  bool _lembrete = true;
+  List<int> _lembretes = List.of(NotificacaoService.padrao);
 
   @override
   void didChangeDependencies() {
@@ -48,8 +49,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final c = ModalRoute.of(context)?.settings.arguments as Compromisso?;
     _c = c;
     if (c != null) {
-      NotificacaoService.ativo(c.id).then((v) {
-        if (mounted) setState(() => _lembrete = v);
+      NotificacaoService.lembretes(c.id).then((v) {
+        if (mounted) setState(() => _lembretes = v);
       });
     }
   }
@@ -195,7 +196,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
     final dataTexto =
         '${_diasSemana[c.inicio.weekday % 7]}, ${c.inicio.day} de ${_meses[c.inicio.month - 1]}';
-    final lembreteEm = c.inicio.subtract(const Duration(minutes: 30));
 
     return ScreenScaffold(
       children: [
@@ -279,24 +279,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 ],
               ),
               const SizedBox(height: 22),
-              Text('LEMBRETE LOCAL', style: AgendaText.rotulo(t)),
+              Text('LEMBRETES', style: AgendaText.rotulo(t)),
               const SizedBox(height: 5),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '${_hm(lembreteEm)} (30 min antes) e ${_hm(c.inicio)}',
-                      style: AgendaText.corpo(t),
-                    ),
-                  ),
-                  PhysicalToggle(
-                    valor: _lembrete,
-                    onChanged: (valor) {
-                      setState(() => _lembrete = valor);
-                      NotificacaoService.aplicar(c, ativo: valor);
-                    },
-                  ),
-                ],
+              LembretesEditor(
+                minutos: _lembretes,
+                onChanged: (v) {
+                  setState(() => _lembretes = v);
+                  NotificacaoService.aplicar(c, minutos: v);
+                },
               ),
               const SizedBox(height: 22),
               Text('VISIBILIDADE', style: AgendaText.rotulo(t)),

@@ -7,22 +7,33 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../models/modelos.dart';
 
-/// Lembretes locais dos compromissos: 30 min antes e na hora do início.
+/// Lembretes locais dos compromissos, no estilo Google Agenda: cada compromisso
+/// tem uma lista de avisos, cada um com sua antecedência em minutos (0 = na
+/// hora do início). A lista vai de 0 a [maxPorCompromisso] avisos.
 ///
-/// Nada aqui vai ao servidor: a preferência "lembrete ligado/desligado" de
-/// cada compromisso fica em SharedPreferences, neste aparelho. Toda falha é
-/// capturada para nunca quebrar o fluxo de salvar/excluir.
+/// Nada aqui vai ao servidor: a lista de cada compromisso fica em
+/// SharedPreferences, neste aparelho. Toda falha é capturada para nunca
+/// quebrar o fluxo de salvar/excluir.
 class NotificacaoService {
   NotificacaoService._();
 
   static final _plugin = FlutterLocalNotificationsPlugin();
   static bool _pronto = false;
 
-  static const antecedencia = Duration(minutes: 30);
+  /// Lista usada em compromissos novos: 30 min antes e na hora do início.
+  static const padrao = [30, 0];
+
+  /// Máximo de avisos por compromisso (igual ao Google Agenda).
+  static const maxPorCompromisso = 5;
+
+  /// Maior antecedência aceita: 4 semanas, em minutos.
+  static const maxMinutos = 4 * 7 * 24 * 60;
+
   static const _canalId = 'lembretes_compromissos';
   static const _canalNome = 'Lembretes de compromissos';
 
-  // O iOS aceita no máximo 64 notificações pendentes (2 por compromisso).
+  // O iOS aceita no máximo 64 notificações pendentes; ao sincronizar ficam as
+  // 60 mais próximas no tempo.
   static const _limite = 60;
 
   /// Chame uma vez no main(), depois do Supabase.initialize.
@@ -67,30 +78,62 @@ class NotificacaoService {
 
   // ---------- preferência por compromisso ----------
 
-  static String _chave(String id) => 'lembrete_$id';
+  static String _chave(String id) => 'lembretes_$id';
 
-  /// Lembrete ligado? O padrão é ligado.
-  static Future<bool> ativo(String id) async {
+  // Formato antigo: bool "lembrete ligado" (30 min antes + na hora).
+  static String _chaveLegada(String id) => 'lembrete_$id';
+
+  /// Remove duplicatas e valores inválidos; ordena do mais distante ao mais
+  /// próximo do início (como o Google Agenda) e respeita o máximo.
+  static List<int> normalizar(Iterable<int> minutos) {
+    final l = minutos.where((m) => m >= 0 && m <= maxMinutos).toSet().toList()
+      ..sort((a, b) => b.compareTo(a));
+    return l.take(maxPorCompromisso).toList();
+  }
+
+  /// Antecedências (em minutos) configuradas para o compromisso. Lista vazia
+  /// = sem lembretes. Compromissos antigos são migrados do formato bool.
+  static Future<List<int>> lembretes(String id) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool(_chave(id)) ?? true;
+      final salvo = prefs.getStringList(_chave(id));
+      if (salvo != null) {
+        return normalizar(salvo.map(int.tryParse).whereType<int>());
+      }
+      if (prefs.getBool(_chaveLegada(id)) == false) return [];
+      return List.of(padrao);
     } catch (_) {
-      return true;
+      return List.of(padrao);
     }
+  }
+
+  /// "Na hora do início", "30 minutos antes", "1 hora antes", "2 dias antes"...
+  static String rotulo(int minutos) =>
+      minutos == 0 ? 'Na hora do início' : '${_quanto(minutos)} antes';
+
+  static String _quanto(int m) {
+    String un(int n, String s, String p) => '$n ${n == 1 ? s : p}';
+    if (m % (7 * 24 * 60) == 0) return un(m ~/ (7 * 24 * 60), 'semana', 'semanas');
+    if (m % (24 * 60) == 0) return un(m ~/ (24 * 60), 'dia', 'dias');
+    if (m % 60 == 0) return un(m ~/ 60, 'hora', 'horas');
+    return un(m, 'minuto', 'minutos');
   }
 
   // ---------- agendamento ----------
 
   /// FNV-1a de 32 bits: id estável entre execuções (String.hashCode não é
   /// garantido) e dentro do limite de int do Android.
-  static int _idNotificacao(String compromissoId) {
+  static int _idNotificacao(String chave) {
     var h = 0x811C9DC5;
-    for (final u in compromissoId.codeUnits) {
+    for (final u in chave.codeUnits) {
       h ^= u;
       h = (h * 0x01000193) & 0xFFFFFFFF;
     }
     return h & 0x7FFFFFFF;
   }
+
+  static int _idAviso(String compromissoId, int minutos) =>
+      _idNotificacao('$compromissoId#$minutos');
 
   static String _hm(DateTime d) =>
       '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
@@ -99,7 +142,7 @@ class NotificacaoService {
     android: AndroidNotificationDetails(
       _canalId,
       _canalNome,
-      channelDescription: 'Aviso antes e na hora de cada compromisso',
+      channelDescription: 'Avisos antes e na hora de cada compromisso',
       importance: Importance.high,
       priority: Priority.high,
     ),
@@ -138,79 +181,94 @@ class NotificacaoService {
     }
   }
 
-  /// Agenda o aviso de 30 min antes e o aviso na hora do início.
-  /// Devolve quantas notificações foram agendadas (as que já passaram são
-  /// ignoradas).
-  static Future<int> _agendar(Compromisso c) async {
+  static Future<void> _programarAviso(Compromisso c, int minutos) {
+    final corpo = minutos == 0
+        ? 'Começa agora · ${_hm(c.inicio)}'
+        : 'Começa às ${_hm(c.inicio)} · daqui a ${_quanto(minutos)}';
+    return _programar(
+      _idAviso(c.id, minutos),
+      c.titulo,
+      corpo,
+      c.inicio.subtract(Duration(minutes: minutos)),
+    );
+  }
+
+  /// Agenda os avisos de [minutos] do compromisso. Avisos que já passaram são
+  /// ignorados. Devolve quantos foram agendados.
+  static Future<int> _agendar(Compromisso c, List<int> minutos) async {
     if (!_pronto) return 0;
     final agora = DateTime.now();
     var n = 0;
-
-    final antes = c.inicio.subtract(antecedencia);
-    if (antes.isAfter(agora)) {
-      await _programar(
-        _idNotificacao(c.id),
-        c.titulo,
-        'Começa às ${_hm(c.inicio)} · daqui a ${antecedencia.inMinutes} minutos',
-        antes,
-      );
-      n++;
-    }
-
-    if (c.inicio.isAfter(agora)) {
-      await _programar(
-        _idNotificacao('${c.id}#inicio'),
-        c.titulo,
-        'Começa agora · ${_hm(c.inicio)}',
-        c.inicio,
-      );
+    for (final m in minutos) {
+      if (!c.inicio.subtract(Duration(minutes: m)).isAfter(agora)) continue;
+      await _programarAviso(c, m);
       n++;
     }
     return n;
   }
 
-  static Future<void> _cancelar(String id) async {
+  static Future<void> _cancelar(String id, Iterable<int> minutos) async {
     if (!_pronto) return;
+    for (final m in minutos) {
+      await _plugin.cancel(_idAviso(id, m));
+    }
+    // ids do formato antigo (30 min antes e "#inicio")
     await _plugin.cancel(_idNotificacao(id));
     await _plugin.cancel(_idNotificacao('$id#inicio'));
   }
 
-  /// Grava a preferência e agenda (ou cancela) o lembrete do compromisso.
-  /// Chamar ao criar, editar ou alternar o toggle. Reagendar sobrescreve o
-  /// lembrete antigo (mesmo id), então editar o horário já funciona.
-  static Future<void> aplicar(Compromisso c, {required bool ativo}) async {
+  /// Grava a lista de avisos e reagenda o compromisso. Chamar ao criar,
+  /// editar ou mudar os lembretes. Lista vazia = sem lembretes.
+  static Future<void> aplicar(
+    Compromisso c, {
+    required List<int> minutos,
+  }) async {
     try {
+      final novos = normalizar(minutos);
+      final antigos = await lembretes(c.id);
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_chave(c.id), ativo);
-      await _cancelar(c.id);
-      if (ativo) await _agendar(c);
+      await prefs.setStringList(_chave(c.id), novos.map((m) => '$m').toList());
+      await prefs.remove(_chaveLegada(c.id));
+      await _cancelar(c.id, {...antigos, ...novos});
+      await _agendar(c, novos);
     } catch (e) {
-      debugPrint('Erro ao aplicar lembrete: $e');
+      debugPrint('Erro ao aplicar lembretes: $e');
     }
   }
 
   /// Ao excluir o compromisso.
   static Future<void> remover(String id) async {
     try {
+      final antigos = await lembretes(id);
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_chave(id));
-      await _cancelar(id);
+      await prefs.remove(_chaveLegada(id));
+      await _cancelar(id, antigos);
     } catch (e) {
-      debugPrint('Erro ao remover lembrete: $e');
+      debugPrint('Erro ao remover lembretes: $e');
     }
   }
 
   /// Refaz todos os lembretes a partir dos próximos compromissos (cobre
-  /// edições/exclusões feitas em outro aparelho e reinstalações).
+  /// edições/exclusões feitas em outro aparelho e reinstalações). Se passar do
+  /// limite do sistema, ficam os avisos mais próximos no tempo.
   static Future<void> sincronizar(List<Compromisso> proximos) async {
     if (!_pronto) return;
     try {
       await _plugin.cancelAll();
-      var n = 0;
+      final agora = DateTime.now();
+      final avisos = <({DateTime quando, Compromisso c, int minutos})>[];
       for (final c in proximos) {
-        if (n >= _limite) break;
-        if (!await ativo(c.id)) continue;
-        n += await _agendar(c);
+        for (final m in await lembretes(c.id)) {
+          final quando = c.inicio.subtract(Duration(minutes: m));
+          if (quando.isAfter(agora)) {
+            avisos.add((quando: quando, c: c, minutos: m));
+          }
+        }
+      }
+      avisos.sort((a, b) => a.quando.compareTo(b.quando));
+      for (final a in avisos.take(_limite)) {
+        await _programarAviso(a.c, a.minutos);
       }
     } catch (e) {
       debugPrint('Erro ao sincronizar lembretes: $e');

@@ -6,6 +6,7 @@ import '../services/erros.dart';
 import '../services/notificacao_service.dart';
 import '../theme/agenda_theme.dart';
 import '../widgets/agenda_widgets.dart';
+import '../widgets/lembretes_editor.dart';
 
 class EventFormScreen extends StatefulWidget {
   const EventFormScreen({super.key});
@@ -23,7 +24,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
   DateTime _dia = DateTime.now();
   TimeOfDay _ini = const TimeOfDay(hour: 19, minute: 0);
   TimeOfDay _fim = const TimeOfDay(hour: 20, minute: 0);
-  bool _lembrete = true;
+  List<int> _lembretes = List.of(NotificacaoService.padrao);
   bool _salvando = false;
   bool _iniciado = false;
   String? _erro;
@@ -65,8 +66,8 @@ class _EventFormScreenState extends State<EventFormScreen> {
       _dia = arg.inicio;
       _ini = TimeOfDay.fromDateTime(arg.inicio);
       _fim = TimeOfDay.fromDateTime(arg.fim);
-      NotificacaoService.ativo(arg.id).then((v) {
-        if (mounted) setState(() => _lembrete = v);
+      NotificacaoService.lembretes(arg.id).then((v) {
+        if (mounted) setState(() => _lembretes = v);
       });
     }
     _atualizarTextos();
@@ -121,7 +122,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
       if (_editando == null) {
         final novo = await CompromissoService.criar(
             titulo: _titulo.text, inicio: inicio, fim: fim);
-        await NotificacaoService.aplicar(novo, ativo: _lembrete);
+        await NotificacaoService.aplicar(novo, minutos: _lembretes);
       } else {
         await CompromissoService.atualizar(
             id: _editando!.id, titulo: _titulo.text, inicio: inicio, fim: fim);
@@ -132,7 +133,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
             inicio: inicio,
             fim: fim,
           ),
-          ativo: _lembrete,
+          minutos: _lembretes,
         );
       }
       if (!mounted) return;
@@ -200,24 +201,11 @@ class _EventFormScreenState extends State<EventFormScreen> {
               const SizedBox(height: 20),
               Divider(color: t.linha),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Lembrete local', style: AgendaText.corpo(t)),
-                        const SizedBox(height: 4),
-                        Text('Aviso 30 minutos antes e na hora do início',
-                            style: AgendaText.corpoSuave(t)),
-                      ],
-                    ),
-                  ),
-                  PhysicalToggle(
-                    valor: _lembrete,
-                    onChanged: (v) => setState(() => _lembrete = v),
-                  ),
-                ],
+              Text('LEMBRETES', style: AgendaText.rotulo(t)),
+              const SizedBox(height: 6),
+              LembretesEditor(
+                minutos: _lembretes,
+                onChanged: (v) => setState(() => _lembretes = v),
               ),
             ],
           ),
