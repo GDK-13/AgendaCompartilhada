@@ -6,9 +6,11 @@ import '../models/modelos.dart';
 import '../services/auth_service.dart';
 import '../services/erros.dart';
 import '../services/grupo_service.dart';
+import '../services/notificacao_service.dart';
 import '../theme/agenda_theme.dart';
 import '../widgets/agenda_widgets.dart';
 import '../widgets/convite_dialog.dart';
+import '../widgets/loading_dialog.dart';
 
 const _diasSemana = [
   'Domingo',
@@ -138,6 +140,87 @@ class _GroupScreenState extends State<GroupScreen> {
     }
   }
 
+  Future<void> _sair() async {
+    final g = _grupo;
+    if (g == null) return;
+    final t = context.tokens;
+
+    final String aviso;
+    if (g.membros <= 1) {
+      aviso = 'Você é o único membro: ao sair, o grupo será excluído agora.';
+    } else if (g.membros == 2) {
+      aviso = 'O outro membro será avisado e ficará sozinho no grupo. '
+          'Se ninguém entrar em ${Grupo.diasParaExcluir} dias, o grupo será '
+          'excluído automaticamente.';
+    } else {
+      aviso = 'Os outros membros serão avisados de que você saiu.';
+    }
+
+    final confirmou = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+        child: GlassCard(
+          forte: true,
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Sair do grupo?',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: t.textoPrincipal,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(aviso,
+                  textAlign: TextAlign.center, style: AgendaText.corpoSuave(t)),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: GlassButton(
+                      label: 'Cancelar',
+                      onPressed: () => Navigator.pop(ctx, false),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: PrimaryButton(
+                      label: 'Sair',
+                      perigo: true,
+                      onPressed: () => Navigator.pop(ctx, true),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (confirmou != true || !mounted) return;
+
+    try {
+      await comLoading(
+        context,
+        () => GrupoService.sair(g.id),
+        texto: 'Saindo do grupo...',
+      );
+      await NotificacaoService.cancelarGrupo(g.id);
+      if (mounted) Navigator.pop(context, true); // a Home recarrega a lista
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(traduzirErro(e))));
+      }
+    }
+  }
+
   void _mudarDia(DateTime d) {
     setState(() => _dia = d);
     _carregar();
@@ -227,10 +310,25 @@ class _GroupScreenState extends State<GroupScreen> {
               icone: Icons.ios_share_rounded,
               onTap: () => mostrarConvite(context, g),
             ),
+            const SizedBox(width: 10),
+            RoundIconButton(
+              icone: Icons.logout_rounded,
+              onTap: _sair,
+            ),
           ],
         ),
       ),
       children: [
+        if (g.excluiEm != null) ...[
+          const SizedBox(height: 20),
+          StatusBanner(
+            texto: 'Você é o único membro. O grupo será excluído em '
+                '${g.excluiEmTexto} se ninguém entrar. Convide alguém com o '
+                'código ${g.codigo}.',
+            tipo: BannerTipo.info,
+            icone: Icons.hourglass_bottom_rounded,
+          ),
+        ],
         const SizedBox(height: 20),
         _SeletorDia(
           dia: _dia,

@@ -17,7 +17,7 @@ class GrupoService {
   static Future<List<Grupo>> listar() async {
     final rows = await _db
         .from('grupos')
-        .select('id, nome, codigo, participacoes(count)')
+        .select('id, nome, codigo, exclui_em, participacoes(count)')
         .order('criado_em')
         .timeout(limiteRede);
     return _lista(rows).map(Grupo.fromMap).toList();
@@ -40,6 +40,35 @@ class GrupoService {
         .rpc('entrar_grupo', params: {'p_codigo': codigo})
         .timeout(limiteRede);
     return id as String;
+  }
+
+  /// Sai do grupo. Os demais membros recebem um aviso; se ficar só um, o grupo
+  /// ganha prazo de exclusão; se não sobrar ninguém, é excluído na hora.
+  static Future<void> sair(String grupoId) async {
+    await _db.rpc('sair_grupo', params: {
+      'p_grupo_id': grupoId,
+      'p_nome': AuthService.nome,
+    }).timeout(limiteRede);
+  }
+
+  /// Avisos de grupo ainda não mostrados neste usuário.
+  static Future<List<AvisoGrupo>> avisosPendentes() async {
+    final rows = await _db
+        .from('avisos')
+        .select('id, titulo, mensagem')
+        .eq('lido', false)
+        .order('criado_em')
+        .timeout(limiteRede);
+    return _lista(rows).map(AvisoGrupo.fromMap).toList();
+  }
+
+  static Future<void> marcarAvisosLidos(List<String> ids) async {
+    if (ids.isEmpty) return;
+    await _db
+        .from('avisos')
+        .update({'lido': true})
+        .inFilter('id', ids)
+        .timeout(limiteRede);
   }
 
   static Future<List<Ocupacao>> ocupacoes(

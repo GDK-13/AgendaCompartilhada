@@ -77,9 +77,41 @@ class _HomeShellState extends State<HomeShell> {
         agora,
         agora.add(const Duration(days: 30)),
       );
-      await NotificacaoService.sincronizar(prox);
+      List<Grupo> grupos = const [];
+      try {
+        grupos = await GrupoService.listar();
+      } catch (_) {}
+      await NotificacaoService.sincronizar(prox, grupos: grupos);
     } catch (e) {
       debugPrint('Erro ao preparar lembretes: $e');
+    }
+    await _verificarAvisos();
+  }
+
+  bool _verificandoAvisos = false;
+
+  // Avisos de grupo gerados no servidor (alguém saiu, grupo será excluído...).
+  // Viram notificação local na hora e uma mensagem na tela. Só chegam quando o
+  // app é aberto/atualizado (não há push com o app fechado).
+  Future<void> _verificarAvisos() async {
+    if (_verificandoAvisos) return;
+    _verificandoAvisos = true;
+    try {
+      final avisos = await GrupoService.avisosPendentes();
+      if (avisos.isEmpty) return;
+      for (final a in avisos) {
+        await NotificacaoService.mostrarAgora(a.id, a.titulo, a.mensagem);
+      }
+      await GrupoService.marcarAvisosLidos(avisos.map((a) => a.id).toList());
+      if (!mounted) return;
+      final texto = avisos.length == 1
+          ? '${avisos.first.titulo}: ${avisos.first.mensagem}'
+          : '${avisos.length} novos avisos de grupos.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(texto)));
+    } catch (e) {
+      debugPrint('Erro ao buscar avisos de grupo: $e');
+    } finally {
+      _verificandoAvisos = false;
     }
   }
 
@@ -99,6 +131,10 @@ class _HomeShellState extends State<HomeShell> {
         _compromissos = r[0] as List<Compromisso>;
         _grupos = r[1] as List<Grupo>;
       });
+      for (final g in _grupos) {
+        NotificacaoService.agendarExclusaoGrupo(g);
+      }
+      _verificarAvisos();
     } catch (e) {
       if (mounted && id == _reqId) setState(() => _erro = traduzirErro(e));
     } finally {
@@ -872,7 +908,8 @@ class _GroupsScreen extends StatelessWidget {
               child: _GroupTile(
                 title: grupos[i].nome,
                 subtitle:
-                    '${grupos[i].membros} membro(s)  ·  código ${grupos[i].codigo}',
+                    '${grupos[i].membros} membro(s)  ·  código ${grupos[i].codigo}'
+                    '${grupos[i].excluiEm == null ? '' : '\nSerá excluído em ${grupos[i].excluiEmTexto}'}',
                 color: cores[i % cores.length],
               ),
             ),

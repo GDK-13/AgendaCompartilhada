@@ -25,12 +25,28 @@ class Grupo {
     required this.nome,
     required this.codigo,
     required this.membros,
+    this.excluiEm,
   });
+
+  /// Dias que um membro pode ficar sozinho antes de o grupo ser excluído.
+  /// Só serve para o texto de confirmação: precisa ser igual a
+  /// dias_para_excluir_grupo() no SQL. A data real vem de [excluiEm].
+  static const diasParaExcluir = 7;
 
   final String id;
   final String nome;
   final String codigo;
   final int membros;
+
+  /// Quando o grupo será excluído por ter só um membro (null = sem prazo).
+  final DateTime? excluiEm;
+
+  String get excluiEmTexto {
+    final d = excluiEm;
+    if (d == null) return '';
+    String dois(int n) => n.toString().padLeft(2, '0');
+    return '${dois(d.day)}/${dois(d.month)}/${d.year} às ${dois(d.hour)}:${dois(d.minute)}';
+  }
 
   factory Grupo.fromMap(Map<String, dynamic> m) {
     final part = m['participacoes'];
@@ -40,8 +56,30 @@ class Grupo {
       nome: m['nome'] as String,
       codigo: m['codigo'] as String,
       membros: n,
+      excluiEm: m['exclui_em'] == null
+          ? null
+          : DateTime.parse(m['exclui_em'] as String).toLocal(),
     );
   }
+}
+
+/// Aviso de grupo gerado no servidor (alguém saiu, grupo será/foi excluído).
+class AvisoGrupo {
+  const AvisoGrupo({
+    required this.id,
+    required this.titulo,
+    required this.mensagem,
+  });
+
+  final String id;
+  final String titulo;
+  final String mensagem;
+
+  factory AvisoGrupo.fromMap(Map<String, dynamic> m) => AvisoGrupo(
+        id: m['id'] as String,
+        titulo: m['titulo'] as String,
+        mensagem: m['mensagem'] as String,
+      );
 }
 
 class Ocupacao {

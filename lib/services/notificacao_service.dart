@@ -252,7 +252,10 @@ class NotificacaoService {
   /// Refaz todos os lembretes a partir dos próximos compromissos (cobre
   /// edições/exclusões feitas em outro aparelho e reinstalações). Se passar do
   /// limite do sistema, ficam os avisos mais próximos no tempo.
-  static Future<void> sincronizar(List<Compromisso> proximos) async {
+  static Future<void> sincronizar(
+    List<Compromisso> proximos, {
+    List<Grupo> grupos = const [],
+  }) async {
     if (!_pronto) return;
     try {
       await _plugin.cancelAll();
@@ -270,9 +273,58 @@ class NotificacaoService {
       for (final a in avisos.take(_limite)) {
         await _programarAviso(a.c, a.minutos);
       }
+      for (final g in grupos) {
+        await agendarExclusaoGrupo(g);
+      }
     } catch (e) {
       debugPrint('Erro ao sincronizar lembretes: $e');
     }
+  }
+
+  // ---------- grupos ----------
+
+  /// Mostra na hora uma notificação (aviso vindo do servidor, ex.: "Ana saiu
+  /// do grupo"). [chave] é o id do aviso, para não duplicar.
+  static Future<void> mostrarAgora(
+    String chave,
+    String titulo,
+    String corpo,
+  ) async {
+    if (!_pronto) return;
+    try {
+      await _plugin.show(_idNotificacao('aviso#$chave'), titulo, corpo, _detalhes);
+    } catch (e) {
+      debugPrint('Erro ao mostrar aviso: $e');
+    }
+  }
+
+  /// Avisa 24 h antes de um grupo com um só membro ser excluído. Se o grupo
+  /// não tem mais prazo (alguém entrou), cancela o aviso.
+  static Future<void> agendarExclusaoGrupo(Grupo g) async {
+    if (!_pronto) return;
+    try {
+      final id = _idNotificacao('grupo#${g.id}');
+      await _plugin.cancel(id);
+      final fim = g.excluiEm;
+      if (fim == null) return;
+      final quando = fim.subtract(const Duration(days: 1));
+      if (!quando.isAfter(DateTime.now())) return;
+      await _programar(
+        id,
+        g.nome,
+        'Você é o único membro: o grupo será excluído amanhã (${g.excluiEmTexto}) se ninguém entrar.',
+        quando,
+      );
+    } catch (e) {
+      debugPrint('Erro ao agendar aviso do grupo: $e');
+    }
+  }
+
+  static Future<void> cancelarGrupo(String grupoId) async {
+    if (!_pronto) return;
+    try {
+      await _plugin.cancel(_idNotificacao('grupo#$grupoId'));
+    } catch (_) {}
   }
 
   /// Ao sair da conta: outra conta no mesmo aparelho não pode receber avisos.
