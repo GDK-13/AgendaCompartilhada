@@ -789,6 +789,8 @@ class _TimelineEvent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    // Abaixo disso título + horário empilhados não cabem (~38px de conteúdo).
+    final compacto = height < 46;
     return Positioned(
       left: _DayTimeline.leftGutter + 4,
       top: top + 3,
@@ -822,32 +824,60 @@ class _TimelineEvent extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: t.textoPrincipal,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
+                child: compacto
+                    // Evento curto: título e horário na mesma linha para
+                    // não estourar a altura do bloco.
+                    ? Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: t.textoPrincipal,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            subtitle,
+                            maxLines: 1,
+                            style: TextStyle(
+                              color: t.textoSuave,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: t.textoPrincipal,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: t.textoSuave,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: t.textoSuave,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
               ),
               const SizedBox(width: 8),
             ],

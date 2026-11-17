@@ -44,7 +44,7 @@ class NotificacaoService {
       // fuso "local" do pacote timezone (UTC por padrão) não altera o horário.
       tzdata.initializeTimeZones();
 
-      const android = AndroidInitializationSettings('@mipmap/launcher_icon');
+      const android = AndroidInitializationSettings('@drawable/ic_stat_notification');
       const ios = DarwinInitializationSettings(
         requestAlertPermission: false,
         requestBadgePermission: false,
