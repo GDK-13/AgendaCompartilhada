@@ -905,12 +905,10 @@ class FreeSlotCard extends StatelessWidget {
     super.key,
     required this.intervalo,
     required this.duracao,
-    this.onCombinar,
   });
 
   final String intervalo;
   final String duracao;
-  final VoidCallback? onCombinar;
 
   @override
   Widget build(BuildContext context) {
@@ -945,11 +943,6 @@ class FreeSlotCard extends StatelessWidget {
                 Text(duracao, style: AgendaText.corpoSuave(t)),
               ],
             ),
-          ),
-          SizedBox(
-            width: 104,
-            child: PrimaryButton(
-                label: 'Combinar', altura: 40, onPressed: onCombinar),
           ),
         ],
       ),
