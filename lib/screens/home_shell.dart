@@ -1239,7 +1239,7 @@ class _ProfileScreen extends StatelessWidget {
         GlassCard(
           child: Column(
             children: [
-              MemberAvatar(nome: 'Kevin', cor: t.membroA, tamanho: 72),
+              MemberAvatar(nome: AuthService.nome, cor: t.membroA, tamanho: 72),
               const SizedBox(height: 12),
               Text(AuthService.nome, style: AgendaText.corpo(t)),
               const SizedBox(height: 3),
